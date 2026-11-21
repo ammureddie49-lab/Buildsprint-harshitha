@@ -2,7 +2,6 @@
 
 **BuildSprint Round 3 · Evidence-grounded workplace memory · Privacy-first by design**
 
-Live link at buildsprint-trace.netlify.app
 
 > A client meeting starts tomorrow. Tasks have changed owners, deadlines have moved, and someone corrected yesterday's brief. TraceMind helps you find **what changed, what was promised, and what is safe to say**—with a source for every supported claim.
 
