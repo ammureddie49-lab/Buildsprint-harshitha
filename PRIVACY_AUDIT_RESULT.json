@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "checks": {
+    "person_day_scopes": 165,
+    "authorized_records_checked": 113095,
+    "forbidden_records_checked": 149585,
+    "derived_fact_sources_checked": 0,
+    "brief_citations_checked": 178,
+    "question_citations_checked": 60
+  },
+  "violations": [],
+  "limitations": [
+    "Public fixture only",
+    "Permission/citation invariants, not semantic entailment",
+    "OpenAI and real Qdrant runtimes not invoked",
+    "Not authenticated multi-user penetration testing"
+  ]
+}

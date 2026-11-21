@@ -1,0 +1,46 @@
+{
+  "release": "TraceMind Hybrid v5 \u2014 Qdrant Local Vector DB",
+  "based_on": "TraceMind Hybrid v4 Complete release built from user BuildSprint-R3-candidate (3).zip",
+  "python_tests": {
+    "passed": 169,
+    "failed": 0,
+    "vector_contract_tests": 12,
+    "qdrant_client": "fake injected; real client not installed in packaging environment"
+  },
+  "public_offline_replay": {
+    "score": 85.0,
+    "max": 85,
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "privacy_leaks": [],
+    "environment": "TRACEMIND_USE_LLM=0, TRACEMIND_VECTOR_DB=0"
+  },
+  "new_capabilities": [
+    "persistent Qdrant local store with incremental upsert",
+    "shared team-record-only embeddings",
+    "request-scoped allowed source ID filtering",
+    "hybrid BM25+vector reciprocal-rank fusion",
+    "Studio Vector DB mode",
+    "optional CLI vector retrieval when configured",
+    "real local Qdrant smoke test (for Windows)"
+  ],
+  "unverified": [
+    "Qdrant runtime in packaging environment (dependency could not be installed due to network)",
+    "MiniLM inference in v5 Qdrant path",
+    "live paid OpenAI requests",
+    "frontend npm build",
+    "hidden-day performance"
+  ],
+  "submission_security": [
+    ".env excluded",
+    "local databases excluded",
+    "node_modules excluded",
+    "git internals excluded",
+    "real API keys excluded"
+  ]
+}

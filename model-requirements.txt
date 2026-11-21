@@ -1,0 +1,5 @@
+# Only needed for optional remote model path; deterministic CLI is stdlib-only.
+openai>=1.60,<3
+python-dotenv>=1.0,<2
+# Optional tokenizer for fuller context utilization; conservative byte guard works without it.
+tiktoken>=0.8,<1

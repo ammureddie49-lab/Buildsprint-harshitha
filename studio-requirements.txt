@@ -1,0 +1,6 @@
+fastapi>=0.111,<1
+uvicorn>=0.30,<1
+pydantic>=2,<3
+# Optional local neural retrieval: pip install sentence-transformers
+openai>=1.60,<3
+python-dotenv>=1.0,<2

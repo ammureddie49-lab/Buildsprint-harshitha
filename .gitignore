@@ -1,0 +1,89 @@
+
+# ============================================
+# TRACEMIND — GITIGNORE
+# ============================================
+
+# 1. API KEYS & SECRETS
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# 2. PYTHON CACHE
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# 3. VIRTUAL ENVIRONMENTS
+.venv/
+venv/
+env/
+ENV/
+
+# 4. RUNTIME DATABASES
+*.sqlite
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.db
+*.db-shm
+*.db-wal
+
+# 5. VECTOR DATABASE & MODEL CACHE
+.tracemind-qdrant/
+.tracemind-qdrant*/
+qdrant_storage/
+.huggingface/
+.hf_cache/
+.torch/
+
+# 6. ORGANIZER DATA & ANSWER KEYS
+/data/
+/answers/
+**/organizer_answer_keys/
+**/hidden_days/
+
+# 7. EVALUATION OUTPUTS
+/runs/
+*.log
+*.tmp
+*.bak
+*.prof
+
+# 8. FRONTEND DEPENDENCIES
+node_modules/
+.npm/
+.vite/
+.next/
+coverage/
+
+# IMPORTANT:
+# Do NOT ignore the prebuilt frontend
+# if launch_studio.py requires it.
+
+# 9. EDITOR & SYSTEM FILES
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 10. BUILD ARTIFACTS
+build/
+*.egg-info/
+dist/
+
+# NOTE:
+# If the prebuilt Studio frontend is inside
+# a dist/ folder, remove that specific folder
+# from the ignore rules or explicitly allow it.

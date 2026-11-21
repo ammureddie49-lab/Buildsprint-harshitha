@@ -1,0 +1,59 @@
+{
+  "project": "TraceMind — BuildSprint R3",
+  "release": "model-ready-source-v6",
+  "source_archive": "user uploaded BuildSprint-R3-candidate(2).zip",
+  "public_score": {
+    "total": 85,
+    "maximum_available": 85,
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "privacy_leaks": 0,
+    "mode": "offline, TRACEMIND_USE_LLM=0, TRACEMIND_VECTOR_DB=0"
+  },
+  "unscored": {
+    "hidden_improvement": 5,
+    "human_or_agent_design_review": 10,
+    "note": "Cannot claim 100/100 without those evaluations"
+  },
+  "tests": {
+    "python_unittest_passed": 198,
+    "python_unittest_failed": 0,
+    "adversarial_new_cases": 18,
+    "qdrant_contract_with_fake_client": 12,
+    "model_readiness_new_cases": 11
+  },
+  "privacy": {
+    "status": "PASS",
+    "person_day_scopes": 165,
+    "authorized_records_checked": 113095,
+    "forbidden_records_checked": 149585,
+    "derived_fact_sources_checked": 0,
+    "brief_citations_checked": 178,
+    "question_citations_checked": 60,
+    "violations": 0
+  },
+  "runtime_checks": {
+    "python_cli": "verified",
+    "prebuilt_studio_static_route": "verified via TestClient",
+    "live_openai_sdk": "not run (API key not provided)",
+    "real_qdrant_plus_minilm": "User-supplied Windows smoke log reported PASS for both Qdrant Local and MiniLM; not repeated in package builder",
+    "npm_rebuild": "not run; previously compiled frontend from uploaded archive retained"
+  },
+  "organizer_fixture_integrity": {
+    "checked_files": 24,
+    "all_unchanged": true,
+    "submission_contains_answer_keys": false
+  },
+  "risk_notes": [
+    "Source IDs and team/private/restricted ACL enforced in Python",
+    "External model optional and privacy scoped, still requires explicit operator authorization",
+    "Qdrant user-scope forgetting is retrieval suppression, not global vector erasure",
+    "Studio only supports localhost demo identities; no production login",
+    "CLI defaults to auto on an operator-provided key; Studio consent remains separate"
+  ]
+}
