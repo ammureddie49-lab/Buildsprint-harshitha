@@ -1,159 +1,187 @@
 # TraceMind — The Work Assistant That Remembers
 
-**BUILDSprint R3 · Final audited candidate implementation**
+**BuildSprint Round 3 · Evidence-grounded workplace memory · Privacy-first by design**
 
-TraceMind is an evidence-grounded workplace memory and meeting assistant. It reads time-ordered email, chat, task, document, spreadsheet, calendar and note records. It preserves changing facts and user feedback across processes, creates short meeting briefs, answers with real citations, and refuses or clarifies when it cannot safely answer. All graded behavior works through a JSON-only Python CLI; a local React/Three.js + FastAPI Studio is included for demonstrations.
+> A client meeting starts tomorrow. Tasks have changed owners, deadlines have moved, and someone corrected yesterday's brief. TraceMind helps you find **what changed, what was promised, and what is safe to say**—with a source for every supported claim.
 
-**Submission status:** Offline public scorer **85/85** (all available machine-scored day 1–5 points), **198 automated Python tests passing**, and a separate public-fixture privacy-invariant audit with **zero authorization/citation violations**. **This is not a 100/100 or hidden-day claim.** Five points for hidden-day improvement and ten points for design/live review remain unscored; real OpenAI and Qdrant runtime execution were not available in the packaging environment.
+TraceMind is a stateful, local-first workplace memory assistant built around a **JSON-only Python command-line interface (CLI)**. It processes daily workplace activity, creates concise meeting briefs, answers historical questions, remembers feedback, and respects visibility and forgetting rules. An optional local Studio offers a visual demonstration; the **CLI is the evaluated deliverable**.
 
-## 1. Run the officially graded CLI (no key, Docker, or vector dependencies)
+### Highlights
 
-Use Python 3.11+ from the `BuildSprint-R3-candidate` directory. The CLI is offline without a configured key. If an operator supplies a key, the default `TRACEMIND_USE_LLM=auto` enables selective language interpretation; `TRACEMIND_USE_LLM=0` forces offline mode.
+- **Meeting briefs:** Changes since the previous client meeting, outstanding commitments, suggested records, and one useful question—or `nothing_new`.
+- **Cited answers:** Real record IDs support facts; uncertainty leads to clarification, refusal, or an honest abstention.
+- **Durable, temporal memory:** SQLite retains facts, task updates, feedback, and corrections across independent processes.
+- **Permission-first retrieval:** Organization, record visibility, requester, time cutoff, and forgetting are enforced before evidence reaches an answer or an optional model.
+- **Selective model assistance:** OpenAI can interpret unfamiliar language, corrections, and Hinglish commitments. Local rules remain the fallback.
+- **Optional semantic search:** SQLite FTS5/BM25 plus local MiniLM and Qdrant, with source authorization rechecked after retrieval.
+
+## Public evaluation snapshot
+
+| Area | Offline public score |
+| --- | ---: |
+| Meeting briefs | 20/20 |
+| Answers | 15/15 |
+| Honesty / grounding | 15/15 |
+| Persistent memory | 15/15 |
+| Privacy | 10/10 |
+| Cost | 10/10 |
+| **Total, days 1–5** | **85/85** |
+
+**Scope:** This result was measured with the deterministic, model-off CLI on the public organizer fixture. It is **not** a hidden-day, live-OpenAI, or guaranteed 100/100 score. A later local test run reported **200 tests, 0 failures, 48 fixture-dependent skips** before setting the external dataset path. See [EVALUATION.md](EVALUATION.md) for methodology and remaining limitations.
+
+## Quick start — the graded CLI
+
+**Requirements:** Python 3.11+ and the organizer's data pack. The deterministic CLI does **not** need an API key, Docker, Node.js, or Qdrant.
+
+The clean source repository intentionally **does not include** the organizer's `data/` and `answers/` directories. Set `R3_PACK` to the extracted organizer pack containing `data/people.json` and `data/days/day-01.jsonl`.
+
+**Windows PowerShell:**
 
 ```powershell
-python -m unittest discover -s tests -v
-python tools/run_days.py --cmd "python tracemind.py" --days 1-5 --out runs/my-final-check
-python tools/score.py --run runs/my-final-check --days 1-5
+$env:R3_PACK = 'C:\path\to\organizer-pack'
+$env:TRACEMIND_USE_LLM = '0'
+$env:TRACEMIND_VECTOR_DB = '0'
+Test-Path "$env:R3_PACK\data\days\day-01.jsonl"  # True
+
+python tracemind.py ingest --day 1
+python tracemind.py brief --person p02 --date 2026-11-03
+python tracemind.py ask --person p02 --at '2026-11-02T18:00:00Z' --ask 'Who owns billing for NB?'
+python tracemind.py forget --person p02 --what 'Forget my Dubai trip'
+```
+
+**Linux / macOS:**
+
+```bash
+export R3_PACK='/path/to/organizer-pack'
+export TRACEMIND_USE_LLM=0 TRACEMIND_VECTOR_DB=0
+python3 tracemind.py ingest --day 1
+python3 tracemind.py brief --person p02 --date 2026-11-03
+python3 tracemind.py ask --person p02 --at '2026-11-02T18:00:00Z' --ask 'Who owns billing for NB?'
+python3 tracemind.py forget --person p02 --what 'Forget my Dubai trip'
+```
+
+All four commands print **machine-readable JSON to stdout**. Logs belong on stderr. Each invocation is a separate process: state persists in SQLite. The expected JSON schemas and input fields are documented in [DATA_FORMAT.md](DATA_FORMAT.md).
+
+### Reproduce the public results
+
+With the organizer pack mounted as `R3_PACK`, run:
+
+```powershell
+$env:TRACEMIND_USE_LLM = '0'
+$env:TRACEMIND_VECTOR_DB = '0'
+python -m unittest discover -s tests -q
+python tools/run_days.py --cmd 'python tracemind.py' --days 1-5 --out runs/public-check
+python tools/score.py --run runs/public-check --days 1-5
 python tools/agent_privacy_audit.py
 ```
 
-The full **local verification bundle** includes the supplied public `data/` and `answers/` fixtures. The **clean judge/source submission** intentionally excludes them. If you run its test suite without the organizer's dataset, dataset-dependent integration tests report **SKIPPED**, not passed; other synthetic/security tests continue to run. To execute **all 198 tests**, use the Local Verification ZIP or set `R3_PACK` to the folder containing `data/people.json` and `data/days/day-01.jsonl`. For PowerShell:
+Without `R3_PACK`, the source-only repository cannot run the public scorer; fixture-dependent tests may be skipped. The organizer provides days 6–15 only during hidden evaluation. The scorer is for **verification**, not the source of answers.
 
-```powershell
-$env:R3_PACK = "C:\path\to\organizer-pack"   # replace with the actual folder containing data/
-python -m unittest discover -s tests -v
+## How it works
+
+```mermaid
+flowchart TD
+    A[Daily JSONL records and prior-day feedback] --> B[Ingest and persist in SQLite]
+    B --> C[Temporal facts, corrections, task state, preferences]
+    B --> D[Optional bounded language extraction]
+    D --> C
+    C --> E[Requester, organization, visibility, time and forget gate]
+    E --> F{Request type}
+    F --> G[Meeting brief: meaningful changes and promises]
+    F --> H[Question: structured lookup and evidence retrieval]
+    H --> I[FTS5/BM25; optional local Qdrant + MiniLM]
+    I --> J[Optional model interpretation over authorized evidence]
+    G --> K[Source and policy validation]
+    J --> K
+    K --> L[JSON brief / answer / clarify / refuse / abstain]
 ```
 
-The organizer supplies hidden days and private answers externally; never hard-code answer keys into the application.
+**The trust boundary is Python, not the LLM.** SQLite is the source of truth. Model suggestions and vector similarity never override record permissions or become source citations by themselves.
 
-### Four required commands
+### Memory, corrections, and forgetting
 
-```powershell
-python tracemind.py ingest --day 1
-python tracemind.py brief --person p02 --date 2026-11-03
-python tracemind.py ask --person p02 --at "2026-11-02T18:00:00Z" --ask "Who handles billing for NB?"
-python tracemind.py forget --person p02 --what "Forget my Dubai trip"
-```
+Records are time-ordered and source-linked. A later correction from a sufficiently authoritative person can supersede an earlier claim without rewriting history. Feedback changes one user's future briefs; it must not leak into someone else's results or into earlier as-of queries.
 
-All commands output machine-readable JSON to stdout. Each CLI invocation is a separate process and persists state through SQLite. An optional `audit --person P` command is also implemented for source-scoped introspection.
+Forgetting prevents matching information from appearing again for the requester, including after reingestion. **This is not a claim of universal physical erasure:** shared records or embeddings can remain for other authorized users. See [DESIGN_NOTE.md](DESIGN_NOTE.md) and [SECURITY_AUDIT.md](SECURITY_AUDIT.md).
 
-## 2. Design and architecture
+## Optional OpenAI interpretation
 
-```text
-Organizer daily JSONL + previous day's feedback
-          |
-          v
-  Deterministic ingestion (SQLite source records, task state, feedback)
-          |
-          +-- optional bounded OpenAI SDK extraction for corrections,
-          |    Hinglish commitments, decisions, blockers, owners
-          |         |
-          |         v
-          |    source-validated hybrid_facts + temporal_facts
-          v
-  Requester/org/visibility/as-of/forget ACL gate
-          |
-          +-- Fast structured memory & rule-based answer
-          +-- FTS5/BM25 lexical evidence retrieval
-          +-- optional local MiniLM embeddings + persistent Qdrant index
-          +-- optional OpenAI SDK reasoning over bounded, authorized evidence
-          |
-          v
-  Python-side source, time, permission & numeric/name checks
-          |
-          v
-  JSON answer / brief / clarify / refuse / abstain
-```
-
-**SQLite is the source of truth.** Qdrant indexes semantic vectors only for `team` records; its payload stores source IDs, organization/client/time and a content fingerprint, not raw message bodies. Search results are revalidated against the requester's current authorized source IDs. Qdrant is a retrieval index, **not** a trusted memory database, and vector similarity is not proof of a fact.
-
-**Model interpretation is selective.** The CLI only sends candidate **team-visible** natural-language records, partitioned by organization and client, in batches of at most five, subject to a configurable call budget. Python checks source IDs and fact content before storing extracted claims. The SDK is optional and never required for the public offline scorer. `TRACEMIND_USE_LLM=0` makes no paid model requests.
-
-**Memory is temporal.** Original records and interpreted facts retain source provenance. Corrections are evaluated with author authority and recency; user feedback is effective only after its observation day; suppressed topics and preferences are person-scoped. In later days, ignored feedback topics affect only that requester's briefs. Forgotten record IDs cannot be cited in that requester's subsequent answers. Shared-source forget is access suppression rather than guaranteed erasure of all other users' copies or Qdrant vectors.
-
-## 3. Optional model integration (for judges)
-
-The official OpenAI Python SDK is used directly, **without LangGraph**. Configure on the evaluation machine (do not commit any secrets):
+Install the adapter dependencies:
 
 ```powershell
 python -m pip install -r model-requirements.txt
 Copy-Item .env.example .env
 ```
 
-Set in `.env`:
+Set these values **only in your local environment or uncommitted `.env`**:
 
-```ini
+```dotenv
 TRACEMIND_USE_LLM=auto
-OPENAI_API_KEY=THE_EVALUATOR_OWN_KEY
 TRACEMIND_MODEL=gpt-4.1-mini
+OPENAI_API_KEY=YOUR_OWN_KEY
 TRACEMIND_MAX_INGEST_CALLS=12
 ```
 
-Run `python tools/smoke_hybrid_model.py` to validate the **real** SDK once with synthetic, not workplace, evidence. The CLI uses an explicit call budget, scoped prompts, failure fallback, and token/cost metering; any key-enabled remote runs may incur API charges. The model path has been exercised with *mocked* Responses API clients, **not a paid live evaluation**. Do not claim its hidden-day accuracy or spending is already measured. If using a different model, supply `TRACEMIND_PRICE_INPUT_PER_M` and `TRACEMIND_PRICE_OUTPUT_PER_M`; an unknown unpriced model is disabled to avoid misreporting zero cost. See `MODEL_EVALUATION.md` for mode and token-budget details.
+| Mode | Behavior |
+| --- | --- |
+| `auto` (default) | Uses the configured API key for supported, bounded model calls |
+| `0` | Forces offline execution—even if a key exists |
+| `1` | Enables supported model calls when a key exists |
 
-**Model outage protection:** extraction attempts are bounded and stop after repeated failures; previously unprocessed candidate records can be retried on the next ingest after service recovery, still subject to budget and source permissions.
+Model selection, pricing, input budgets, and fallback logic are described in [MODEL_EVALUATION.md](MODEL_EVALUATION.md). The design applies **4,000 input-token preflight budget per question** and **8,000 per brief**. SDK usage values are collected when calls succeed; configured per-million-token model prices estimate USD cost. Where token counts are estimates, they should not be presented as exact billing. If you use an unsupported/unpriced model, configure its price rates rather than silently treating calls as free.
 
-## 4. Optional local vector database (Qdrant)
+**Live-model status:** The JSON request format was tested, but a complete successful paid-model public replay is **not verified**. A reported live attempt hit insufficient API credits. Do not interpret the 85/85 offline score as a model-on score.
+
+```powershell
+python tools/smoke_hybrid_model.py
+# After a successful synthetic smoke test and with an authorized key:
+python tools/run_days.py --cmd 'python tracemind.py' --days 1-5 --out runs/model-check
+python tools/score.py --run runs/model-check --days 1-5
+python tools/audit_model_usage.py --run runs/model-check
+```
+
+**Privacy note:** Activating remote interpretation can send eligible **team-visible** workplace evidence to the model provider. Use only a key and data for which this processing is authorized. Private and restricted record bodies are excluded from the model-evidence path.
+
+## Optional vector retrieval and local Studio
+
+These are **demonstration and retrieval extensions**, not requirements for the graded CLI.
 
 ```powershell
 python -m pip install -r vector-requirements.txt
 python tools/vector_db_smoke.py
 python tools/vector_db_smoke.py --real-model
-```
 
-The first smoke test verifies an actual persistent Qdrant local collection with **fake workplace data and synthetic vectors**; the second also loads the genuine `sentence-transformers/all-MiniLM-L6-v2` model. The model may need to download weights on first use. Neither test needs an OpenAI key. To select Qdrant in the Studio, choose **Vector DB** in Ask. To opt into vector search on the CLI model-fallback path, set `TRACEMIND_VECTOR_DB=1`; it is off by default to keep short CLI subprocess calls fast. The included Qdrant unit tests use a simulated client; **real Qdrant installation was not testable in the packaging environment**.
-
-## 5. Run the interactive Studio (local demo)
-
-```powershell
 python -m pip install -r studio-requirements.txt
 python launch_studio.py
 ```
 
-Open **http://127.0.0.1:8765**. A prebuilt frontend is included, so **npm is not needed to simply launch the demo**. To modify the React app, run `cd studio-frontend; npm install; npm run build; cd ..`; set `TRACEMIND_STUDIO_DEV=1` to launch Vite development mode. The UI includes source citations, meetings, memory, evaluation results, a Three.js visualization, and vector retrieval. Studio action tools can prepare local tasks, call plans, meeting plans, drafts and memory changes with approval; **no real calls, emails or external calendar actions are executed**.
+Open `http://127.0.0.1:8765` for the Studio. The repo includes the prebuilt frontend, so Node.js is not required just to view the demo. Node/npm are needed for frontend **development**.
 
-**Security boundary:** Studio is **localhost-only**. The persona selector is a development demo, not user authentication. Do **not** expose the FastAPI service to a public network or claim production tenant security without implementing real authentication/authorization. Private and restricted record bodies are never sent through the Studio's external-model evidence tools.
+The Studio is **localhost-only**. Selecting a demo persona is **not authentication**; do not expose it to the public internet. Its action agent stages tasks, call plans, and drafts for confirmation rather than sending emails or making calls. Qdrant locally indexes team-visible embeddings and enforces current source authorization on retrieval. See [VECTOR_DB_README.md](VECTOR_DB_README.md).
 
-## 6. Honest results and grading coverage
+## Repository guide
 
-| Challenge category | Verified public points | Evidence |
-|---|---:|---|
-| Right briefs | 20/20 | Official 5-day scorer |
-| Right answers | 15/15 | Official 5-day scorer |
-| Honesty | 15/15 | Official 5-day scorer and source tests |
-| Memory | 15/15 | Official 5-day scorer plus temporal/feedback/forget tests |
-| Privacy | 10/10 | Official 5-day scorer, 0 public leaks, separate invariant audit |
-| Cost and speed | 10/10 | Offline scorer (0 API tokens; wall time reported) |
-| **Available machine score** | **85/85** | 5 public days only |
-| Getting better on days 6–15 | Not available | Organizer-only hidden grading |
-| One-page design/live review | Not available | Evaluated by people / organizer agent |
+| File | Purpose |
+| --- | --- |
+| [`tracemind.py`](tracemind.py) | Graded four-command CLI and core memory engine |
+| [`tracemind_hybrid.py`](tracemind_hybrid.py) | Optional model extraction and grounded reasoning |
+| [`tracemind_temporal.py`](tracemind_temporal.py) | Time-aware fact and deadline management |
+| [`tracemind_model_config.py`](tracemind_model_config.py) | Model activation, input budgets, pricing |
+| [`tracemind_semantic.py`](tracemind_semantic.py) | Local semantic retrieval |
+| [`tracemind_vector_db.py`](tracemind_vector_db.py) | Qdrant vector integration |
+| [`studio_api.py`](studio_api.py) | Local FastAPI Studio server |
+| [`tests/`](tests/) | Regression, adversarial and privacy cases |
+| [`tools/`](tools/) | Evaluation, replay, audits and smoke tests |
+| [`DESIGN_NOTE.md`](DESIGN_NOTE.md) | Short design note for the organizers |
+| [`JUDGE_HANDOFF.md`](JUDGE_HANDOFF.md) | Reproducible evaluator handoff |
 
-Our extended audit checks **165 person-day scopes** across supplied public records and validates **178 meeting-brief references** and **60 question/matched references** with no unauthorized IDs. It does not prove full semantic entailment or hidden-day success. See `EVALUATION.md`, `SECURITY_AUDIT.md` and `DESIGN_NOTE.md` for detailed verification and acknowledged limitations.
+**Engineering principles:** evidence before fluency; permissions before retrieval; authority before recency; source IDs before claims; safe refusal before guessing.
 
-## 7. Author contributions and AI tooling transparency
+## Limits and disclosure
 
-The implementation and adversarial tests were developed and iterated using **ChatGPT and Kiro** as coding/review assistants. The deliverable includes executable source, independent unit tests, a design note, reproducible public scoring instructions, and a live-demo script. Human oversight and independent testing of code and outputs remain essential. No judge API keys or private credentials are bundled.
+- Hidden days 6–15 and the organizer's design/live-session marks are not locally measurable.
+- Public privacy invariants are not proof against every possible semantic or multi-user attack.
+- Remote model execution is optional, may incur charges, and needs separate authorization.
+- TraceMind was developed and reviewed with assistance from ChatGPT and Kiro. The candidate is responsible for understanding, testing and presenting the implementation.
 
-## 8. Critical limits
-
-- **No guarantee of full 100/100 marks**: hidden days 6–15, human/agent design scoring and live OpenAI behavior were not available to validate.
-- **Not production authentication**: the Studio deliberately rejects remote clients; a persona selector is not a login.
-- **No complete semantic entailment proof**: source checks and conservative model validation reduce, but cannot eliminate, factual hallucinations.
-- **No guaranteed physical vector deletion** after one person's topic forget: request-scoped retrieval is suppressed, shared evidence may remain for others.
-- **Cold Qdrant/MiniLM startup** can be substantial for a new CLI process; use Studio for a warm interactive demo and benchmark before enabling for timed evaluation.
-
-**Files to start with:** `tracemind.py`, `tracemind_hybrid.py`, `tracemind_temporal.py`, `tracemind_vector_db.py`, `studio_api.py`, `DESIGN_NOTE.md`, `EVALUATION.md`, `SECURITY_AUDIT.md`.
-
-## Model-ready CLI (not a hidden-score guarantee)
-
-The scored CLI defaults to **auto**: it uses OpenAI **only** if a key is supplied via the environment or an uncommitted `.env`. `TRACEMIND_USE_LLM=0` always disables remote calls, even if a key exists. The Studio has a **separate explicit consent requirement**. Model calls use a preflight input budget (4,000 for asks, 8,000 for briefs, 8,000 for ingestion batches) with an optional `tiktoken` tokenizer; when absent, a conservative byte-based ceiling is used. Actual SDK token usage is checked after the call. Do not assume the model-on public score is 85/85 without running it with a real key.
-
-### Scoring-focused changes in this model-ready release
-
-- Unified key activation: default `auto`, explicit `0` force-off, with one coherent SDK/pricing configuration.
-- Added `tiktoken`-aware prompt preflight with conservative byte fallback, server usage checks, and at-most-one model attempt per question.
-- Expanded model-extraction **candidate triage** for unfamiliar workplace phrasings without hardcoded client identities or hidden answers.
-- Added 11 synthetic regression tests and `tools/audit_model_usage.py` (brief/ask usage only).
-- Preserved the original 85/85 offline public scorer and independent privacy audit.
-
-See `MODEL_EVALUATION.md` and `MODEL_GENERALIZATION_REPORT.md`. **A live model-on public score has not been measured.**
+**Submission:** Share this Git repository and the one-line runner `python tracemind.py` with the short [design note](DESIGN_NOTE.md). Add a video, evaluation report, or other files only when required by the finale's separate submission instructions.
