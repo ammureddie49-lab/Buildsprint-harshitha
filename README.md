@@ -2,6 +2,8 @@
 
 **BuildSprint Round 3 · Evidence-grounded workplace memory · Privacy-first by design**
 
+Live link at buildsprint-trace.netlify.app
+
 > A client meeting starts tomorrow. Tasks have changed owners, deadlines have moved, and someone corrected yesterday's brief. TraceMind helps you find **what changed, what was promised, and what is safe to say**—with a source for every supported claim.
 
 TraceMind is a stateful, local-first workplace memory assistant built around a **JSON-only Python command-line interface (CLI)**. It processes daily workplace activity, creates concise meeting briefs, answers historical questions, remembers feedback, and respects visibility and forgetting rules. An optional local Studio offers a visual demonstration; the **CLI is the evaluated deliverable**.
